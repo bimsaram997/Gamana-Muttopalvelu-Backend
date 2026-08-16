@@ -12,26 +12,67 @@ namespace Gamana_Muttopalvelu_Backend.Services
     }
     public class BookingService : IBookingService
     {
+        private readonly AddressDto _officeAddress = new AddressDto
+        {
+            Label = "Ali-Huikkaantie 4 A-B, Tampere",
+            Street = "Ali-Huikkaantie",
+            HouseNumber = "4 A-B",
+            PostalCode = "33560",
+            City = "Tampere",
+            Latitude = 61.494597,
+            Longitude = 23.839757,
+            Floor = 1,
+            HasElevator = true
+        };
         private readonly IUserRepository _userRepository;
         private readonly IBookingRepository _bookingRepository;
         private readonly IAddressRepository _addressRepository;
         private readonly IEmailService _emailService;
+        private readonly IRouteService _routeService;
 
         public BookingService(
             IUserRepository userRepository,
             IBookingRepository bookingRepository,
             IAddressRepository addressRepository,
-            IEmailService emailService
+            IEmailService emailService,
+            IRouteService routeService
             )
         {
             _userRepository = userRepository;
             _bookingRepository = bookingRepository;
             _addressRepository = addressRepository;
             _emailService = emailService;
+            _routeService = routeService;
         }
 
         public async Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto)
         {
+            // 0. Calculate Optimal Driving Route from HQ Office -> Pickups -> Dropoff
+            var dropoffs = dto.DropoffLocation != null
+                ? new List<AddressDto> { dto.DropoffLocation }
+                : new List<AddressDto>();
+
+            var routeRequest = new CalculateRouteRequest
+            {
+                Office = _officeAddress,
+                Pickups = dto.PickupLocations,
+                Drops = dropoffs
+            };
+
+            var routeResult = await _routeService.CalculateBestRouteAsync(routeRequest);
+
+            // Reassign optimized pickup locations list back to DTO
+            if (routeResult?.OptimizedWaypoints != null && routeResult.OptimizedWaypoints.Count > 0)
+            {
+                var sortedPickups = routeResult.OptimizedWaypoints
+                    .Where(w => dto.PickupLocations.Any(p => p.Street == w.Street && p.HouseNumber == w.HouseNumber))
+                    .ToList();
+
+                if (sortedPickups.Any())
+                {
+                    dto.PickupLocations = sortedPickups;
+                }
+            }
             // 1. Handle User via UserRepository
             var user = await _userRepository.GetByEmailAsync(dto.Email);
 
@@ -109,7 +150,8 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 TotalAddresses = booking.Addresses.Count,
                 ServiceDate = booking.ServiceDate,
                 TotalPrice = booking.TotalPrice,
-                Status = booking.Status
+                Status = booking.Status,
+                routeResultDto = routeResult
             };
         }
 

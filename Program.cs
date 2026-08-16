@@ -34,6 +34,10 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddHttpClient<IRouteService, RouteService>(client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "GamanaMuuttopalveluBackend/1.0 (contact@gamana.fi)");
+});
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 
 // Register Email Service
