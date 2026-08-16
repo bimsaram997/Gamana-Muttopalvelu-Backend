@@ -1,0 +1,23 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Deploy to DEV when pushing to 'dev' branch
+      - name: Deploy to Render Dev
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          curl -X POST "${{ secrets.RENDER_BACKEND_DEV_HOOK }}"
+
+      # Deploy to PROD when pushing to 'main' branch
+      - name: Deploy to Render Production
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -X POST "${{ secrets.RENDER_BACKEND_PROD_HOOK }}"
