@@ -113,7 +113,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
             await _bookingRepository.SaveChangesAsync();
             try
             {
-                await _emailService.SendAdminNewBookingEmailAsync(dto, booking.Id);
+                //await _emailService.SendAdminNewBookingEmailAsync(dto, booking.Id);
             }
             catch (Exception ex)
             {
