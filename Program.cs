@@ -42,6 +42,10 @@ builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpS
 
 // Register Email Service
 builder.Services.AddScoped<IEmailService, EmailService>();
+// Register the Email Queue as a Singleton
+builder.Services.AddSingleton<IEmailQueue, EmailQueue>();
+// Register the Hosted Background Service
+builder.Services.AddHostedService<EmailBackgroundWorker>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

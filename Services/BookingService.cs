@@ -29,20 +29,22 @@ namespace Gamana_Muttopalvelu_Backend.Services
         private readonly IAddressRepository _addressRepository;
         private readonly IEmailService _emailService;
         private readonly IRouteService _routeService;
+        private readonly IEmailQueue _emailQueue; 
 
         public BookingService(
             IUserRepository userRepository,
             IBookingRepository bookingRepository,
             IAddressRepository addressRepository,
             IEmailService emailService,
-            IRouteService routeService
-            )
+            IRouteService routeService,
+            IEmailQueue emailQueue)
         {
             _userRepository = userRepository;
             _bookingRepository = bookingRepository;
             _addressRepository = addressRepository;
             _emailService = emailService;
             _routeService = routeService;
+            _emailQueue = emailQueue;
         }
 
         public async Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto)
@@ -111,16 +113,9 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
             // Single transaction save point
             await _bookingRepository.SaveChangesAsync();
-            try
-            {
-                //await _emailService.SendAdminNewBookingEmailAsync(dto, booking.Id);
-            }
-            catch (Exception ex)
-            {
-                // Log error so DB save isn't rolled back if SMTP fails
-                Console.WriteLine($"Email failed: {ex.Message}");
-            }
-            
+            // 4. Queue the email job (Non-blocking background execution)
+            _emailQueue.QueueEmail(dto, booking.Id);
+
 
             return new BookingResponseDto
             {
