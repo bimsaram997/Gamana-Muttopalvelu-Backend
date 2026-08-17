@@ -52,27 +52,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 ? new List<AddressDto> { dto.DropoffLocation }
                 : new List<AddressDto>();
 
-            var routeRequest = new CalculateRouteRequest
-            {
-                Office = _officeAddress,
-                Pickups = dto.PickupLocations,
-                Drops = dropoffs
-            };
-
-            var routeResult = await _routeService.CalculateBestRouteAsync(routeRequest);
-
-            // Reassign optimized pickup locations list back to DTO
-            if (routeResult?.OptimizedWaypoints != null && routeResult.OptimizedWaypoints.Count > 0)
-            {
-                var sortedPickups = routeResult.OptimizedWaypoints
-                    .Where(w => dto.PickupLocations.Any(p => p.Street == w.Street && p.HouseNumber == w.HouseNumber))
-                    .ToList();
-
-                if (sortedPickups.Any())
-                {
-                    dto.PickupLocations = sortedPickups;
-                }
-            }
+          
             // 1. Handle User via UserRepository
             var user = await _userRepository.GetByEmailAsync(dto.Email);
 
@@ -140,6 +120,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 // Log error so DB save isn't rolled back if SMTP fails
                 Console.WriteLine($"Email failed: {ex.Message}");
             }
+            
 
             return new BookingResponseDto
             {
@@ -151,20 +132,15 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 ServiceDate = booking.ServiceDate,
                 TotalPrice = booking.TotalPrice,
                 Status = booking.Status,
-                routeResultDto = routeResult
+                
             };
         }
 
         public async Task<BookingDetailResponseDto?> GetBookingByIdAsync(Guid bookingId)
         {
             var booking = await _bookingRepository.GetByIdAsync(bookingId);
+            if (booking == null) return null;
 
-            if (booking == null)
-            {
-                return null;
-            }
-
-            // Map Pickup and Dropoff addresses based on AddressType enum
             var pickupLocations = booking.Addresses
                 .Where(a => a.Type == AddressType.Pickup)
                 .Select(MapToAddressDto)
@@ -172,6 +148,27 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
             var dropoffAddress = booking.Addresses
                 .FirstOrDefault(a => a.Type == AddressType.Dropoff);
+
+            var dropoffLocation = dropoffAddress != null ? MapToAddressDto(dropoffAddress) : null;
+
+            // Calculate Route for the GetById Details
+            RouteResultDto? routeResult = null;
+            try
+            {
+                var routeRequest = new CalculateRouteRequest
+                {
+                    Office = _officeAddress,
+                    Pickups = pickupLocations,
+                    Drops = dropoffLocation != null ? new List<AddressDto> { dropoffLocation } : new List<AddressDto>()
+                };
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                routeResult = await _routeService.CalculateBestRouteAsync(routeRequest);
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogWarning(ex, "Failed to fetch route for Booking ID: {BookingId}", bookingId);
+            }
 
             return new BookingDetailResponseDto
             {
@@ -191,12 +188,12 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 Email = booking.User?.Email ?? string.Empty,
                 Phone = booking.User?.Phone ?? string.Empty,
 
-                // Address Information
+                // Address & Route Information
                 PickupLocations = pickupLocations,
-                DropoffLocation = dropoffAddress != null ? MapToAddressDto(dropoffAddress) : null
+                DropoffLocation = dropoffLocation,
+                routeResultDto = routeResult
             };
         }
-
         private static AddressDto MapToAddressDto(Address address)
         {
             return new AddressDto
