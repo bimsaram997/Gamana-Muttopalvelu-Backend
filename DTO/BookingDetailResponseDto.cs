@@ -21,5 +21,8 @@
         // Address Details
         public List<AddressDto> PickupLocations { get; set; } = new();
         public AddressDto? DropoffLocation { get; set; }
+
+
+        public RouteResultDto routeResultDto { get; set; }
     }
 }

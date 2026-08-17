@@ -50,7 +50,7 @@ namespace Gamana_Muttopalvelu_Backend.Controllers
             }
         }
 
-        [HttpGet("{id:guid}")]
+        [HttpGet("{id}")]
         public async Task<ActionResult<BookingDetailResponseDto>> GetBookingById(Guid id)
         {
             var booking = await _bookingService.GetBookingByIdAsync(id);
