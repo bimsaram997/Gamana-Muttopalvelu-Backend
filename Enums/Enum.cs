@@ -5,4 +5,9 @@
         Pickup = 1,
         Dropoff = 2
     }
+    public enum EmailType
+    {
+        Booking,
+        Offer
+    }
 }

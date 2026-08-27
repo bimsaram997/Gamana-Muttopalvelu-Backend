@@ -6,8 +6,12 @@ namespace Gamana_Muttopalvelu_Backend.Data
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        public Guid BookingId { get; set; }
-        public Booking Booking { get; set; } = null!;
+        public Guid? BookingId { get; set; }
+        public Booking? Booking { get; set; } = null!;
+
+        // Foreign key & navigation for Offer
+        public Guid? OfferId { get; set; }
+        public Offer? Offer { get; set; }
 
         // Flag / Discriminator to identify if this is Pickup or Dropoff
         public AddressType Type { get; set; }
@@ -21,5 +25,6 @@ namespace Gamana_Muttopalvelu_Backend.Data
         public double Longitude { get; set; }
         public int Floor { get; set; }
         public bool HasElevator { get; set; }
+      
     }
 }
