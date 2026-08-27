@@ -10,6 +10,8 @@ namespace Gamana_Muttopalvelu_Backend.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Booking> Bookings => Set<Booking>();
         public DbSet<Address> Addresses => Set<Address>();
+        public DbSet<Offer> Offers => Set<Offer>();
+        public DbSet<RequestedService> RequestedServices => Set<RequestedService>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,6 +36,25 @@ namespace Gamana_Muttopalvelu_Backend.Data
                 .HasForeignKey(a => a.BookingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Offer>(entity =>
+            {
+                // Optional relationship with User (allows guest offer requests)
+                entity.HasOne(o => o.User)
+                       .WithMany(u => u.Offers)
+                       .HasForeignKey(o => o.UserId);
+
+                // One-to-Many: Offer -> Addresses
+                entity.HasMany(o => o.Addresses)
+                      .WithOne(a => a.Offer)
+                      .HasForeignKey(a => a.OfferId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // One-to-Many: Offer -> RequestedServices
+                entity.HasMany(o => o.RequestedServices)
+                      .WithOne(rs => rs.Offer)
+                      .HasForeignKey(rs => rs.OfferId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
         }
 

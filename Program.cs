@@ -34,6 +34,12 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IOfferRepository, OfferRepository>();
+builder.Services.AddScoped<IOfferService, OfferService>();
+builder.Services.AddScoped<IRequestedServiceRepository, RequestedServiceRepository>();
+
+
+
 builder.Services.AddHttpClient<IRouteService, RouteService>(client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "GamanaMuuttopalveluBackend/1.0 (contact@gamana.fi)");

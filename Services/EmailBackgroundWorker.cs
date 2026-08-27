@@ -1,10 +1,14 @@
-﻿namespace Gamana_Muttopalvelu_Backend.Services
+﻿using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.Enums;
+
+namespace Gamana_Muttopalvelu_Backend.Services
 {
     public class EmailBackgroundWorker : BackgroundService
     {
         private readonly IEmailQueue _emailQueue;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<EmailBackgroundWorker> _logger;
+
         public EmailBackgroundWorker(
             IEmailQueue emailQueue,
             IServiceScopeFactory scopeFactory,
@@ -23,24 +27,35 @@
             {
                 try
                 {
-                    // Dequeue next job asynchronously (waits until an item is available)
-                    var (dto, bookingId) = await _emailQueue.DequeueAsync(stoppingToken);
+                    var item = await _emailQueue.DequeueAsync(stoppingToken);
 
-                    // Scoped services (like DbContext or EmailService) must be resolved within a scope
                     using var scope = _scopeFactory.CreateScope();
                     var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
-                    await emailService.SendAdminNewBookingEmailAsync(dto, bookingId);
-                    _logger.LogInformation("Successfully sent background booking email for Booking ID: {BookingId}", bookingId);
+                    switch (item.Type)
+                    {
+                        case EmailType.Booking when item.Payload is CreateBookingDto bookingDto:
+                            await emailService.SendAdminNewBookingEmailAsync(bookingDto, item.EntityId);
+                            _logger.LogInformation("Sent booking email for ID: {Id}", item.EntityId);
+                            break;
+
+                        case EmailType.Offer when item.Payload is CreateOfferDto offerDto:
+                            await emailService.SendAdminNewOfferEmailAsync(offerDto, item.EntityId);
+                            _logger.LogInformation("Sent offer email for ID: {Id}", item.EntityId);
+                            break;
+
+                        default:
+                            _logger.LogWarning("Unknown email payload type or mismatch for ID: {Id}", item.EntityId);
+                            break;
+                    }
                 }
                 catch (OperationCanceledException)
                 {
-                    // Graceful shutdown requested
                     break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error occurred while processing background email sending.");
+                    _logger.LogError(ex, "Error processing background email.");
                 }
             }
 
