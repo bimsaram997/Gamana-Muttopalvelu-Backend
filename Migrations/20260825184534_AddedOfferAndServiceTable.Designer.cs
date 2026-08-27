@@ -3,6 +3,7 @@ using System;
 using Gamana_Muttopalvelu_Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Gamana_Muttopalvelu_Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825184534_AddedOfferAndServiceTable")]
+    partial class AddedOfferAndServiceTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,7 +31,7 @@ namespace Gamana_Muttopalvelu_Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("BookingId")
+                    b.Property<Guid>("BookingId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("City")
@@ -216,7 +219,8 @@ namespace Gamana_Muttopalvelu_Backend.Migrations
                     b.HasOne("Gamana_Muttopalvelu_Backend.Data.Booking", "Booking")
                         .WithMany("Addresses")
                         .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Gamana_Muttopalvelu_Backend.Data.Offer", "Offer")
                         .WithMany("Addresses")
@@ -242,8 +246,9 @@ namespace Gamana_Muttopalvelu_Backend.Migrations
             modelBuilder.Entity("Gamana_Muttopalvelu_Backend.Data.Offer", b =>
                 {
                     b.HasOne("Gamana_Muttopalvelu_Backend.Data.User", "User")
-                        .WithMany("Offers")
-                        .HasForeignKey("UserId");
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("User");
                 });
@@ -274,8 +279,6 @@ namespace Gamana_Muttopalvelu_Backend.Migrations
             modelBuilder.Entity("Gamana_Muttopalvelu_Backend.Data.User", b =>
                 {
                     b.Navigation("Bookings");
-
-                    b.Navigation("Offers");
                 });
 #pragma warning restore 612, 618
         }

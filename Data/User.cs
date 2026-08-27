@@ -9,5 +9,6 @@
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+        public ICollection<Offer> Offers { get; set; } = new List<Offer>();
     }
 }

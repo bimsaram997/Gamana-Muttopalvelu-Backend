@@ -5,12 +5,13 @@ using Gamana_Muttopalvelu_Backend.Repositories;
 
 namespace Gamana_Muttopalvelu_Backend.Services
 {
-    public interface IBookingService
+    public interface IOfferService
     {
-        Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto);
-        Task<BookingDetailResponseDto> GetBookingByIdAsync(Guid bookingId);
+        Task<OfferResponseDto> CreateOfferAsync(CreateOfferDto dto);
+        Task<OfferDetailResponseDto?> GetOfferByIdAsync(Guid offerId);
     }
-    public class BookingService : IBookingService
+
+    public class OfferService : IOfferService
     {
         private readonly AddressDto _officeAddress = new AddressDto
         {
@@ -24,38 +25,36 @@ namespace Gamana_Muttopalvelu_Backend.Services
             Floor = 1,
             HasElevator = true
         };
+
         private readonly IUserRepository _userRepository;
-        private readonly IBookingRepository _bookingRepository;
+        private readonly IOfferRepository _offerRepository;
         private readonly IAddressRepository _addressRepository;
         private readonly IEmailService _emailService;
         private readonly IRouteService _routeService;
-        private readonly IEmailQueue _emailQueue; 
+        private readonly IEmailQueue _emailQueue;
+        private readonly IRequestedServiceRepository _requestedServiceRepository;
 
-        public BookingService(
+        public OfferService(
             IUserRepository userRepository,
-            IBookingRepository bookingRepository,
+            IOfferRepository offerRepository,
             IAddressRepository addressRepository,
             IEmailService emailService,
             IRouteService routeService,
+            IRequestedServiceRepository requestedServiceRepository,
             IEmailQueue emailQueue)
         {
             _userRepository = userRepository;
-            _bookingRepository = bookingRepository;
+            _offerRepository = offerRepository;
             _addressRepository = addressRepository;
             _emailService = emailService;
+            _requestedServiceRepository = requestedServiceRepository;
             _routeService = routeService;
             _emailQueue = emailQueue;
         }
 
-        public async Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto)
+        public async Task<OfferResponseDto> CreateOfferAsync(CreateOfferDto dto)
         {
-            // 0. Calculate Optimal Driving Route from HQ Office -> Pickups -> Dropoff
-            var dropoffs = dto.DropoffLocation != null
-                ? new List<AddressDto> { dto.DropoffLocation }
-                : new List<AddressDto>();
-
-          
-            // 1. Handle User via UserRepository
+            // 1. Handle User
             var user = await _userRepository.GetByEmailAsync(dto.Email);
 
             if (user == null)
@@ -79,116 +78,114 @@ namespace Gamana_Muttopalvelu_Backend.Services
             // 2. Prepare Addresses
             var addresses = new List<Address>();
 
-            foreach (var p in dto.PickupLocations)
+            if (dto.DepartureAddress != null)
             {
-                addresses.Add(MapToAddressEntity(p, AddressType.Pickup));
+                addresses.Add(MapToAddressEntity(dto.DepartureAddress, AddressType.Pickup));
             }
 
-            if (dto.DropoffLocation != null)
+            if (dto.DestinationAddress != null)
             {
-                addresses.Add(MapToAddressEntity(dto.DropoffLocation, AddressType.Dropoff));
+                addresses.Add(MapToAddressEntity(dto.DestinationAddress, AddressType.Dropoff));
             }
 
-            // Add via AddressRepository
             await _addressRepository.AddRangeAsync(addresses);
 
-            // 3. Create Booking via BookingRepository
-            var booking = new Booking
+            // 3. Create Offer Entity
+            var offerId = Guid.NewGuid();
+
+            var offer = new Offer
             {
-                Id = Guid.NewGuid(),
+                Id = offerId,
                 UserId = user.Id,
-                User = user,
-                SelectedPackageId = dto.SelectedPackageId,
-                EstimatedHours = dto.EstimatedHours,
-                IncludeCleaning = dto.IncludeCleaning,
+                DesiredMovingDate = dto.DesiredMovingDate,
                 Addresses = addresses,
-                Notes = dto.Notes,
-                ServiceDate = dto.ServiceDate,
-                TotalPrice = dto.TotalPrice,
-                Status = "Pending",
-                CreatedAt = DateTime.UtcNow
+                Phone = dto.Phone,
+                Email = dto.Email,
+                AdditionalInfo = dto.AdditionalInfo,
+                PrivacyAgreed = dto.PrivacyAgreed,
+                CreatedAt = DateTime.UtcNow,
+                RequestedServices = dto.ServiceIds.Select(serviceId => new RequestedService
+                {
+                    Id = Guid.NewGuid(),
+                    OfferId = offerId,
+                    ServiceId = serviceId
+                }).ToList()
             };
 
-            await _bookingRepository.AddAsync(booking);
+            // Add top-level aggregate entity (EF Core automatically manages child entities)
+            await _offerRepository.AddAsync(offer);
 
-            // Single transaction save point
-            await _bookingRepository.SaveChangesAsync();
-            // 4. Queue the email job (Non-blocking background execution)
-            _emailQueue.QueueEmail(EmailType.Booking, dto, booking.Id);
+            // Save transaction changes
+            await _offerRepository.SaveChangesAsync();
 
+            // 4. Queue background notification
+            _emailQueue.QueueEmail(EmailType.Offer, dto, offer.Id);
 
-            return new BookingResponseDto
+            return new OfferResponseDto
             {
-                BookingId = booking.Id,
+                OfferId = offer.Id,
                 UserId = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
-                TotalAddresses = booking.Addresses.Count,
-                ServiceDate = booking.ServiceDate,
-                TotalPrice = booking.TotalPrice,
-                Status = booking.Status,
-                
+                TotalAddresses = offer.Addresses.Count,
+                DesiredMovingDate = offer.DesiredMovingDate,
+                CreatedAt = offer.CreatedAt,
+                AdditionalInfo = offer.AdditionalInfo,
+                Phone = offer.Phone
             };
         }
 
-        public async Task<BookingDetailResponseDto?> GetBookingByIdAsync(Guid bookingId)
+        public async Task<OfferDetailResponseDto?> GetOfferByIdAsync(Guid offerId)
         {
-            var booking = await _bookingRepository.GetByIdAsync(bookingId);
-            if (booking == null) return null;
+            var offer = await _offerRepository.GetByIdAsync(offerId);
+            if (offer == null) return null;
 
-            var pickupLocations = booking.Addresses
-                .Where(a => a.Type == AddressType.Pickup)
-                .Select(MapToAddressDto)
-                .ToList();
+            var departureAddress = offer.Addresses
+                .FirstOrDefault(a => a.Type == AddressType.Pickup);
 
-            var dropoffAddress = booking.Addresses
+            var destinationAddress = offer.Addresses
                 .FirstOrDefault(a => a.Type == AddressType.Dropoff);
 
-            var dropoffLocation = dropoffAddress != null ? MapToAddressDto(dropoffAddress) : null;
+            var departureDto = departureAddress != null ? MapToAddressDto(departureAddress) : null;
+            var destinationDto = destinationAddress != null ? MapToAddressDto(destinationAddress) : null;
 
-            // Calculate Route for the GetById Details
+            // Route Calculation
             RouteResultDto? routeResult = null;
             try
             {
                 var routeRequest = new CalculateRouteRequest
                 {
                     Office = _officeAddress,
-                    Pickups = pickupLocations,
-                    Drops = dropoffLocation != null ? new List<AddressDto> { dropoffLocation } : new List<AddressDto>()
+                    Pickups = departureDto != null ? new List<AddressDto> { departureDto } : new List<AddressDto>(),
+                    Drops = destinationDto != null ? new List<AddressDto> { destinationDto } : new List<AddressDto>()
                 };
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 routeResult = await _routeService.CalculateBestRouteAsync(routeRequest);
             }
-            catch (Exception ex)
+            catch
             {
-                //_logger.LogWarning(ex, "Failed to fetch route for Booking ID: {BookingId}", bookingId);
+                // Soft fail on route calculation
             }
 
-            return new BookingDetailResponseDto
+            return new OfferDetailResponseDto
             {
-                BookingId = booking.Id,
-                SelectedPackageId = booking.SelectedPackageId,
-                EstimatedHours = booking.EstimatedHours,
-                IncludeCleaning = booking.IncludeCleaning,
-                Notes = booking.Notes,
-                ServiceDate = booking.ServiceDate,
-                TotalPrice = booking.TotalPrice,
-                Status = booking.Status,
-                CreatedAt = booking.CreatedAt,
-
-                // User Information
-                UserId = booking.UserId,
-                FullName = booking.User?.FullName ?? string.Empty,
-                Email = booking.User?.Email ?? string.Empty,
-                Phone = booking.User?.Phone ?? string.Empty,
-
-                // Address & Route Information
-                PickupLocations = pickupLocations,
-                DropoffLocation = dropoffLocation,
+                OfferId = offer.Id,
+                TotalAddresses = offer.Addresses.Count,
+                DesiredMovingDate = offer.DesiredMovingDate,
+                CreatedAt = offer.CreatedAt,
+                AdditionalInfo = offer.AdditionalInfo,
+                PrivacyAgreed = offer.PrivacyAgreed,
+                UserId = offer.UserId,
+                FullName = offer.User?.FullName ?? string.Empty,
+                Email = offer.User?.Email ?? string.Empty,
+                Phone = offer.User?.Phone ?? string.Empty,
+                DepartureAddress = departureDto,
+                DestinationAddress = destinationDto,
                 routeResultDto = routeResult
             };
         }
+
         private static AddressDto MapToAddressDto(Address address)
         {
             return new AddressDto
