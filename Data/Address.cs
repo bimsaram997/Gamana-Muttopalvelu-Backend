@@ -27,4 +27,6 @@ namespace Gamana_Muttopalvelu_Backend.Data
         public bool HasElevator { get; set; }
       
     }
+
+   
 }

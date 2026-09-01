@@ -38,6 +38,12 @@ builder.Services.AddScoped<IOfferRepository, OfferRepository>();
 builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddScoped<IRequestedServiceRepository, RequestedServiceRepository>();
 
+// Register Generic Repository
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+// Register Admin Service
+builder.Services.AddScoped<IAdminService, AdminService>();
+
 
 
 builder.Services.AddHttpClient<IRouteService, RouteService>(client =>
