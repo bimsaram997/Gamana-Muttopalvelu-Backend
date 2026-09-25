@@ -11,6 +11,10 @@ namespace Gamana_Muttopalvelu_Backend.Services
     {
         Task SendAdminNewBookingEmailAsync(CreateBookingDto dto, Guid bookingId);
         Task SendAdminNewOfferEmailAsync(CreateOfferDto dto, Guid offerId);
+
+        // Customer emails
+        Task SendCustomerBookingReceivedEmailAsync(CreateBookingDto dto, Guid bookingId);
+        Task SendCustomerOfferReceivedEmailAsync(CreateOfferDto dto, Guid offerId);
     }
 
     public class EmailService : IEmailService
@@ -140,7 +144,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
             var subject =
                 $"New Moving Booking #{bookingId.ToString()[..8]} - {dto.FullName}";
 
-            await SendEmailAsync(subject, htmlBody);
+            await SendEmailAsync(_settings.AdminEmail, subject, htmlBody);
         }
 
         public async Task SendAdminNewOfferEmailAsync(
@@ -248,35 +252,131 @@ namespace Gamana_Muttopalvelu_Backend.Services
             var subject =
                 $"📩 New Offer Request #{offerId.ToString()[..8]} - {dto.FullName}";
 
-            await SendEmailAsync(subject, htmlBody);
+            await SendEmailAsync(_settings.AdminEmail,subject, htmlBody);
         }
 
-        private async Task SendEmailAsync(
+        public async Task SendCustomerBookingReceivedEmailAsync(
+    CreateBookingDto dto,
+    Guid bookingId)
+        {
+            var subject = "Gamana Muuttopalvelu - Booking Received";
+
+            var htmlBody = $@"
+        <div style='font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;'>
+
+            <h2 style='color: #dc3545;'>
+                Thank you for your booking request!
+            </h2>
+
+            <p>
+                Hello <strong>{dto.FullName}</strong>,
+            </p>
+
+            <p>
+                We have received your booking request.
+            </p>
+
+            <p>
+                Our team will review your request and contact you soon.
+            </p>
+
+            <p>
+                <strong>Booking ID:</strong> {bookingId}
+            </p>
+
+            <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />
+
+            <p>
+                If you have any questions, please contact us.
+            </p>
+
+            <p>
+                Best regards,<br />
+                <strong>Gamana Muuttopalvelu</strong>
+            </p>
+
+        </div>";
+
+            await SendEmailAsync(
+                dto.Email,
+                subject,
+                htmlBody);
+        }
+
+        public async Task SendCustomerOfferReceivedEmailAsync(
+    CreateOfferDto dto,
+    Guid offerId)
+        {
+            var subject = "Gamana Muuttopalvelu - Offer Request Received";
+
+            var htmlBody = $@"
+        <div style='font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;'>
+
+            <h2 style='color: #0d6efd;'>
+                Thank you for your offer request!
+            </h2>
+
+            <p>
+                Hello <strong>{dto.FullName}</strong>,
+            </p>
+
+            <p>
+                We have received your offer request.
+            </p>
+
+            <p>
+                Our team will review your request and contact you soon.
+            </p>
+
+            <p>
+                <strong>Request ID:</strong> {offerId}
+            </p>
+
+            <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />
+
+            <p>
+                If you have any questions, please contact us.
+            </p>
+
+            <p>
+                Best regards,<br />
+                <strong>Gamana Muuttopalvelu</strong>
+            </p>
+
+        </div>";
+
+            await SendEmailAsync(
+                dto.Email,
+                subject,
+                htmlBody);
+        }
+
+       private async Task SendEmailAsync(
+    string recipient,
     string subject,
     string htmlBody)
-        {
-            var message = new EmailMessage
-            {
-                From = "Gamana Muuttopalvelu <noreply@gamanamuutto.fi>",
-                Subject = subject,
-                HtmlBody = htmlBody
-            };
+{
+    var message = new EmailMessage
+    {
+        From = "Gamana Muuttopalvelu <noreply@gamanamuutto.fi>",
+        Subject = subject,
+        HtmlBody = htmlBody
+    };
 
-            message.To.Add(_settings.AdminEmail);
+    message.To.Add(recipient);
 
-            try
-            {
-                var response = await _resend.EmailSendAsync(message);
+    try
+    {
+        var response = await _resend.EmailSendAsync(message);
 
-                Console.WriteLine(
-                    $"RESEND SUCCESS: {response.Content}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    $"RESEND ERROR: {ex}");
-                throw;
-            }
-        }
+        Console.WriteLine(
+            $"RESEND SUCCESS: {response.Content}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"RESEND ERROR: {ex}");
+        throw;
+    }
+}
     }
 }

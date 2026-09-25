@@ -8,6 +8,9 @@
     public enum EmailType
     {
         Booking,
-        Offer
+        BookingConfirmation,
+        Offer,
+        OfferConfirmation
+     
     }
 }

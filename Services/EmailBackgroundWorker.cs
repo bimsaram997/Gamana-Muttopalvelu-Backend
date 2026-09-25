@@ -34,18 +34,79 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
                     switch (item.Type)
                     {
-                        case EmailType.Booking when item.Payload is CreateBookingDto bookingDto:
-                            await emailService.SendAdminNewBookingEmailAsync(bookingDto, item.EntityId);
-                            _logger.LogInformation("Sent booking email for ID: {Id}", item.EntityId);
+                        // =========================
+                        // ADMIN BOOKING EMAIL
+                        // =========================
+                        case EmailType.Booking
+                            when item.Payload is CreateBookingDto bookingDto:
+
+                            await emailService.SendAdminNewBookingEmailAsync(
+                                bookingDto,
+                                item.EntityId);
+
+                            _logger.LogInformation(
+                                "Sent admin booking email for ID: {Id}",
+                                item.EntityId);
+
                             break;
 
-                        case EmailType.Offer when item.Payload is CreateOfferDto offerDto:
-                            await emailService.SendAdminNewOfferEmailAsync(offerDto, item.EntityId);
-                            _logger.LogInformation("Sent offer email for ID: {Id}", item.EntityId);
+
+                        // =========================
+                        // CUSTOMER BOOKING EMAIL
+                        // =========================
+                        case EmailType.BookingConfirmation
+                            when item.Payload is CreateBookingDto bookingConfirmationDto:
+
+                            await emailService.SendCustomerBookingReceivedEmailAsync(
+                                bookingConfirmationDto,
+                                item.EntityId);
+
+                            _logger.LogInformation(
+                                "Sent customer booking confirmation for ID: {Id}",
+                                item.EntityId);
+
                             break;
+
+
+                        // =========================
+                        // ADMIN OFFER EMAIL
+                        // =========================
+                        case EmailType.Offer
+                            when item.Payload is CreateOfferDto offerDto:
+
+                            await emailService.SendAdminNewOfferEmailAsync(
+                                offerDto,
+                                item.EntityId);
+
+                            _logger.LogInformation(
+                                "Sent admin offer email for ID: {Id}",
+                                item.EntityId);
+
+                            break;
+
+
+                        // =========================
+                        // CUSTOMER OFFER EMAIL
+                        // =========================
+                        case EmailType.OfferConfirmation
+                            when item.Payload is CreateOfferDto offerConfirmationDto:
+
+                            await emailService.SendCustomerOfferReceivedEmailAsync(
+                                offerConfirmationDto,
+                                item.EntityId);
+
+                            _logger.LogInformation(
+                                "Sent customer offer confirmation for ID: {Id}",
+                                item.EntityId);
+
+                            break;
+
 
                         default:
-                            _logger.LogWarning("Unknown email payload type or mismatch for ID: {Id}", item.EntityId);
+                            _logger.LogWarning(
+                                "Unknown email payload type or mismatch for ID: {Id}",
+                                item.EntityId);
+
                             break;
                     }
                 }

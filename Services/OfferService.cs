@@ -120,6 +120,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
             // 4. Queue background notification
             _emailQueue.QueueEmail(EmailType.Offer, dto, offer.Id);
+            _emailQueue.QueueEmail(EmailType.OfferConfirmation,dto,offer.Id);
 
             return new OfferResponseDto
             {
