@@ -134,8 +134,13 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
         private async Task SendEmailAsync(MimeMessage message)
         {
+            // Dynamically select SSL settings based on port (Port 465 uses SSL, Port 587 uses STARTTLS)
+            var secureSocketOptions = _settings.Port == 465
+                ? SecureSocketOptions.SslOnConnect
+                : SecureSocketOptions.StartTls;
+
             using var client = new SmtpClient();
-            await client.ConnectAsync(_settings.Host, _settings.Port, SecureSocketOptions.StartTls);
+            await client.ConnectAsync(_settings.Host, _settings.Port, secureSocketOptions);
             await client.AuthenticateAsync(_settings.Username, _settings.Password);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
