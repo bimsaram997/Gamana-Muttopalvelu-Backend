@@ -5,6 +5,8 @@ using Gamana_Muttopalvelu_Backend.Options;
 using Gamana_Muttopalvelu_Backend.Repositories;
 using Gamana_Muttopalvelu_Backend.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Resend;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +54,15 @@ builder.Services.AddHttpClient<IRouteService, RouteService>(client =>
     client.DefaultRequestHeaders.Add("User-Agent", "GamanaMuuttopalveluBackend/1.0 (contact@gamana.fi)");
 });
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddOptions();
+builder.Services.AddHttpClient();
+builder.Services.AddResend(options =>
+{
+    options.ApiToken = builder.Configuration["ResendApiKey"] ?? string.Empty;
+});
+
 
 // Register Email Service
 builder.Services.AddScoped<IEmailService, EmailService>();
