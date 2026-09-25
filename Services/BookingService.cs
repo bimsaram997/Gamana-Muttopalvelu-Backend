@@ -115,7 +115,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
             await _bookingRepository.SaveChangesAsync();
             // 4. Queue the email job (Non-blocking background execution)
             _emailQueue.QueueEmail(EmailType.Booking, dto, booking.Id);
-
+            _emailQueue.QueueEmail(EmailType.BookingConfirmation, dto, booking.Id);
 
             return new BookingResponseDto
             {
