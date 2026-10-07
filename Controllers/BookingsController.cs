@@ -1,4 +1,6 @@
 ﻿using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
+using Gamana_Muttopalvelu_Backend.DTO.Filters;
 using Gamana_Muttopalvelu_Backend.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -51,7 +53,7 @@ namespace Gamana_Muttopalvelu_Backend.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<BookingDetailResponseDto>> GetBookingById(Guid id)
+        public async Task<ActionResult<AllBookingDetailResponseDto>> GetBookingById(Guid id)
         {
             var booking = await _bookingService.GetBookingByIdAsync(id);
 
@@ -61,6 +63,13 @@ namespace Gamana_Muttopalvelu_Backend.Controllers
             }
 
             return Ok(booking);
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<PagedResponse<BookingDetailResponseDto>>> GetAllBookings([FromQuery] BookingQueryParameters queryParams)
+        {
+            var bookings = await _bookingService.GetAllBookingsAsync( queryParams);
+            return Ok(bookings);
         }
     }
 }

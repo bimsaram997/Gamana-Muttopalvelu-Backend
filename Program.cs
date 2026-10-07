@@ -20,7 +20,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularClientPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200", "https://gamana-muttopalvelu-frontend-dev.onrender.com",
+        policy.WithOrigins("http://localhost:4200", "http://localhost:5173", "https://localhost:5173", "https://localhost:4200", "https://gamana-muttopalvelu-frontend-dev.onrender.com",
             "https://gamana-muttopalvelu-frontend-prod-33g9.onrender.com", "https://gamanamuutto.fi", "https://gamanamuutto.fi")
               .AllowAnyHeader()
               .AllowAnyMethod()
