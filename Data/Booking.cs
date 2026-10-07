@@ -21,5 +21,6 @@ namespace Gamana_Muttopalvelu_Backend.Data
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = "Pending";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public PricingPackage? SelectedPackage { get; set; }
     }
 }

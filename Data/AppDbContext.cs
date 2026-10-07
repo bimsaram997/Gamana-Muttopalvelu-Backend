@@ -53,6 +53,13 @@ namespace Gamana_Muttopalvelu_Backend.Data
                 .HasForeignKey(a => a.BookingId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Booking>()
+            .HasOne(b => b.SelectedPackage)
+            .WithMany() // Assuming a PricingPackage has many Bookings, but PricingPackage doesn't need a List property
+            .HasForeignKey(b => b.SelectedPackageId)
+            .OnDelete(DeleteBehavior.Restrict); // Restrict deletion of packages if bookings depend on them
+
+
             modelBuilder.Entity<Offer>(entity =>
             {
                 // Optional relationship with User (allows guest offer requests)

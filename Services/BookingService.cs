@@ -1,7 +1,10 @@
 ﻿using Gamana_Muttopalvelu_Backend.Data;
 using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
+using Gamana_Muttopalvelu_Backend.DTO.Filters;
 using Gamana_Muttopalvelu_Backend.Enums;
 using Gamana_Muttopalvelu_Backend.Repositories;
+using System.Collections.Generic;
 
 namespace Gamana_Muttopalvelu_Backend.Services
 {
@@ -9,6 +12,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
     {
         Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto);
         Task<BookingDetailResponseDto> GetBookingByIdAsync(Guid bookingId);
+        Task<PagedResponse<AllBookingDetailResponseDto>> GetAllBookingsAsync(BookingQueryParameters queryParams); // New method
     }
     public class BookingService : IBookingService
     {
@@ -187,6 +191,66 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 PickupLocations = pickupLocations,
                 DropoffLocation = dropoffLocation,
                 routeResultDto = routeResult
+            };
+        }
+
+        public async Task<PagedResponse<AllBookingDetailResponseDto>> GetAllBookingsAsync(BookingQueryParameters queryParams)
+        {
+            var pagedResult = await _bookingRepository.GetAllAsync(queryParams);
+
+            var mappedItems = new List<AllBookingDetailResponseDto>();
+
+            foreach (var booking in pagedResult.Data)
+            {
+                var pickupLocations = booking.Addresses
+                    .Where(a => a.Type == AddressType.Pickup)
+                    .Select(MapToAddressDto)
+                    .ToList();
+
+                var dropoffAddress = booking.Addresses
+                    .FirstOrDefault(a => a.Type == AddressType.Dropoff);
+
+                var dropoffLocation = dropoffAddress != null
+                    ? MapToAddressDto(dropoffAddress)
+                    : null;
+
+                mappedItems.Add(new AllBookingDetailResponseDto
+                {
+                    BookingId = booking.Id,
+
+                    EstimatedHours = booking.EstimatedHours,
+                    IncludeCleaning = booking.IncludeCleaning,
+                    Notes = booking.Notes,
+                    ServiceDate = booking.ServiceDate,
+                    TotalPrice = booking.TotalPrice,
+                    Status = booking.Status,
+                    CreatedAt = booking.CreatedAt,
+
+                    // User Information
+                    UserId = booking.UserId,
+                    FullName = booking.User?.FullName ?? string.Empty,
+                    Email = booking.User?.Email ?? string.Empty,
+                    Phone = booking.User?.Phone ?? string.Empty,
+
+                    // Package
+                    SelectedPackageId = booking.SelectedPackage?.Id,
+
+                    PackageName = booking.SelectedPackage?.Translations
+                        .FirstOrDefault(t => t.LanguageCode == "en")?.Title
+                        ?? booking.SelectedPackage?.Translations
+                            .FirstOrDefault()?.Title
+                        ?? string.Empty,
+
+                    // Address Information
+                    PickupLocations = pickupLocations,
+                    DropoffLocation = dropoffLocation
+                });
+            }
+
+            return new PagedResponse<AllBookingDetailResponseDto>
+            {
+                Data = mappedItems,
+                TotalCount = pagedResult.TotalCount
             };
         }
         private static AddressDto MapToAddressDto(Address address)
