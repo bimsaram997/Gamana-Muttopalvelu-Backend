@@ -22,5 +22,6 @@ namespace Gamana_Muttopalvelu_Backend.Data
         public string Status { get; set; } = "Pending";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public PricingPackage? SelectedPackage { get; set; }
+        public string? AdminNotes { get; set; }
     }
 }

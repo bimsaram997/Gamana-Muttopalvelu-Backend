@@ -11,6 +11,8 @@ namespace Gamana_Muttopalvelu_Backend.Repositories
         Task AddAsync(Booking booking);
         Task<Booking?> GetByIdAsync(Guid id);
         Task<PagedResponse<Booking>> GetAllAsync(BookingQueryParameters queryParams);
+        Task<Booking?> GetByIdTrackedAsync(Guid id);
+        Task<bool> UpdateStatusByIdAsync(Guid id, string status);
         Task SaveChangesAsync();
     }
     public class BookingRepository: IBookingRepository
@@ -22,6 +24,13 @@ namespace Gamana_Muttopalvelu_Backend.Repositories
             _context = context;
         }
 
+        public async Task<Booking?> GetByIdTrackedAsync(Guid id)
+        {
+            return await _context.Bookings
+                .Include(b => b.User)
+                .Include(b => b.Addresses)
+                .FirstOrDefaultAsync(b => b.Id == id);
+        }
 
         public async Task AddAsync(Booking booking)
           => await _context.Bookings.AddAsync(booking);
@@ -84,7 +93,43 @@ namespace Gamana_Muttopalvelu_Backend.Repositories
                 TotalCount = totalCount,
             };
         }
+        public async Task<bool> UpdateStatusByIdAsync(Guid bookingId, string status)
+        {
+            var booking = await _context.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
+            if (booking == null) return false;
+
+            booking.Status = status;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+
         public async Task SaveChangesAsync()
-            => await _context.SaveChangesAsync();
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                Console.WriteLine("===== CONCURRENCY ERROR =====");
+
+                foreach (var entry in ex.Entries)
+                {
+                    Console.WriteLine($"Entity: {entry.Metadata.ClrType.Name}");
+                    Console.WriteLine($"State: {entry.State}");
+
+                    var databaseValues = await entry.GetDatabaseValuesAsync();
+
+                    Console.WriteLine(databaseValues == null
+                        ? "RESULT: Entity does not exist in the database."
+                        : "RESULT: Entity still exists in the database.");
+                }
+
+                throw;
+            }
+        }
+
+       
     }
 }

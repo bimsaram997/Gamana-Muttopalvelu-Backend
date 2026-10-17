@@ -71,5 +71,32 @@ namespace Gamana_Muttopalvelu_Backend.Controllers
             var bookings = await _bookingService.GetAllBookingsAsync( queryParams);
             return Ok(bookings);
         }
+
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> UpdateBooking(Guid id, [FromBody] UpdateBookingDto dto)
+        {
+            // Synchronize route parameter with body DTO
+
+            var updatedBookingId = await _bookingService.UpdateBookingAsync(id, dto);
+
+            if (updatedBookingId == null)
+                return NotFound(new { message = $"Booking with ID {id} was not found." });
+
+            // Returns HTTP 200 OK with { "bookingId": "e8b3f64a-0aa0-4875-b125-acebc221ac89" }
+            return Ok(new { bookingId = updatedBookingId });
+        }
+
+        [HttpPatch("{id:guid}/status")]
+        public async Task<IActionResult> UpdateStatusById(Guid id, [FromBody] UpdateStatusDto dto)
+        {
+            var isUpdated = await _bookingService.UpdateStatusByIdAsync(id, dto.Status);
+
+            if (!isUpdated)
+            {
+                return NotFound(new { message = $"Booking with ID {id} was not found." });
+            }
+
+            return Ok(new { bookingId = id, status = dto.Status });
+        }
     }
 }

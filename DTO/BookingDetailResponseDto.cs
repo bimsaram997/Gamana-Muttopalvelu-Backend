@@ -11,6 +11,7 @@
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+        public string? AdminNotes { get; set; }
 
         // User Details
         public Guid UserId { get; set; }
