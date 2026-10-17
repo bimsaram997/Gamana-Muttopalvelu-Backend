@@ -4,6 +4,7 @@ using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
 using Gamana_Muttopalvelu_Backend.DTO.Filters;
 using Gamana_Muttopalvelu_Backend.Enums;
 using Gamana_Muttopalvelu_Backend.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 
 namespace Gamana_Muttopalvelu_Backend.Services
@@ -13,6 +14,8 @@ namespace Gamana_Muttopalvelu_Backend.Services
         Task<BookingResponseDto> CreateBookingAsync(CreateBookingDto dto);
         Task<BookingDetailResponseDto> GetBookingByIdAsync(Guid bookingId);
         Task<PagedResponse<AllBookingDetailResponseDto>> GetAllBookingsAsync(BookingQueryParameters queryParams); // New method
+        Task<Guid?> UpdateBookingAsync(Guid bookingId, UpdateBookingDto dto);
+        Task<bool> UpdateStatusByIdAsync(Guid bookingId, string status);
     }
     public class BookingService : IBookingService
     {
@@ -180,6 +183,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 TotalPrice = booking.TotalPrice,
                 Status = booking.Status,
                 CreatedAt = booking.CreatedAt,
+                AdminNotes = booking.AdminNotes,
 
                 // User Information
                 UserId = booking.UserId,
@@ -225,6 +229,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
                     TotalPrice = booking.TotalPrice,
                     Status = booking.Status,
                     CreatedAt = booking.CreatedAt,
+                    AdminNotes = booking.AdminNotes,
 
                     // User Information
                     UserId = booking.UserId,
@@ -252,6 +257,89 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 Data = mappedItems,
                 TotalCount = pagedResult.TotalCount
             };
+        }
+
+
+
+        public async Task<Guid?> UpdateBookingAsync(
+            Guid bookingId,
+            UpdateBookingDto dto)
+        {
+            var booking = await _bookingRepository
+                .GetByIdTrackedAsync(bookingId);
+
+            if (booking == null)
+                return null;
+
+            // 1. Update booking fields
+            booking.Status = dto.Status;
+            booking.SelectedPackageId = dto.SelectedPackageId;
+            booking.EstimatedHours = dto.EstimatedHours;
+            booking.IncludeCleaning = dto.IncludeCleaning;
+            booking.TotalPrice = dto.TotalPrice;
+            booking.Notes = dto.Notes;
+            booking.ServiceDate = DateTime.SpecifyKind(
+                dto.ServiceDate, DateTimeKind.Utc);
+            booking.AdminNotes = dto.AdminNotes;
+
+            // 2. Update user details
+            if (booking.User != null)
+            {
+                booking.User.FullName = dto.FullName;
+                booking.User.Email = dto.Email.Trim().ToLowerInvariant();
+                booking.User.Phone = dto.Phone;
+            }
+
+
+            // Remove existing addresses from the database context
+            var oldAddresses = booking.Addresses.ToList();
+
+            _addressRepository.RemoveRange(oldAddresses);
+
+            // Clear the navigation collection
+            booking.Addresses.Clear();
+
+            // Prepare replacement addresses
+            var newAddresses = new List<Address>();
+
+            foreach (var pickup in dto.PickupLocations ?? new List<AddressDto>())
+            {
+                var address = MapToAddressEntity(pickup, AddressType.Pickup);
+                address.BookingId = booking.Id;
+                address.OfferId = null;
+
+                newAddresses.Add(address);
+            }
+
+            if (dto.DropoffLocation != null)
+            {
+                var address = MapToAddressEntity(
+                    dto.DropoffLocation, AddressType.Dropoff);
+
+                address.BookingId = booking.Id;
+                address.OfferId = null;
+
+                newAddresses.Add(address);
+            }
+
+            // Explicitly mark all replacement addresses as new
+            _addressRepository.AddRange(newAddresses);
+
+            // Save the booking and address changes
+            await _bookingRepository.SaveChangesAsync();
+
+
+            return booking.Id;
+        }
+
+        public async Task<bool> UpdateStatusByIdAsync(Guid bookingId, string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                throw new ArgumentException("Status cannot be empty.", nameof(status));
+            }
+
+            return await _bookingRepository.UpdateStatusByIdAsync(bookingId, status);
         }
         private static AddressDto MapToAddressDto(Address address)
         {
