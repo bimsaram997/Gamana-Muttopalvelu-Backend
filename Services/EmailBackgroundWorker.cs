@@ -1,4 +1,5 @@
 ﻿using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
 using Gamana_Muttopalvelu_Backend.Enums;
 
 namespace Gamana_Muttopalvelu_Backend.Services
@@ -67,6 +68,21 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
                             break;
 
+                        // =========================
+                        // CUSTOMER UPDATED BOOKING EMAIL
+                        // =========================
+                        case EmailType.BookingStatusUpdate
+                            when item.Payload is UpdateBookingDto bookingUpdatedDto:
+
+                            await emailService.SendCustomerBookingStatusUpdateEmailAsync(
+                                bookingUpdatedDto,
+                                item.EntityId);
+
+                            _logger.LogInformation(
+                                "Sent customer booking confirmation for ID: {Id}",
+                                item.EntityId);
+
+                            break;
 
                         // =========================
                         // ADMIN OFFER EMAIL

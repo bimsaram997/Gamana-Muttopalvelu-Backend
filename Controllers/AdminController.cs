@@ -1,7 +1,10 @@
-﻿using Gamana_Muttopalvelu_Backend.DTO.Admin;
+﻿using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.DTO.Admin;
+using Gamana_Muttopalvelu_Backend.DTO.Filters;
 using Gamana_Muttopalvelu_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 
 namespace Gamana_Muttopalvelu_Backend.Controllers
 {
@@ -53,8 +56,11 @@ namespace Gamana_Muttopalvelu_Backend.Controllers
     {
         private readonly IAdminService _service;
         public PackagesAdminController(IAdminService service) => _service = service;
-
-        [HttpGet] public async Task<IActionResult> GetAll() => Ok(await _service.GetAllPackagesAsync());
+        [HttpGet("dropdown")]
+        public async Task<IActionResult> GetAllDropdownPackages() => Ok(await _service.GetAllDropdownPackagesAsync());
+        [HttpGet]
+        public async Task<ActionResult<PagedResponse<AdminPackageResponseDto>>> GetAll([FromQuery] PackageQueryParameters packageQueryParameters)
+           => Ok(await _service.GetAllPackagesAsync(packageQueryParameters));
         [HttpGet("{id:int}")] public async Task<IActionResult> GetById(int id) => Ok(await _service.GetPackageByIdAsync(id));
         [HttpPost] public async Task<IActionResult> Create([FromBody] AdminPackageUpsertDto dto) => Ok(await _service.SavePackageAsync(dto));
         [HttpPut("{id:int}")] public async Task<IActionResult> Update(int id, [FromBody] AdminPackageUpsertDto dto) => Ok(await _service.SavePackageAsync(dto, id));
