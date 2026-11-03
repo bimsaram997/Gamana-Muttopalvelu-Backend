@@ -1,4 +1,5 @@
 ﻿using Gamana_Muttopalvelu_Backend.DTO;
+using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
 using Gamana_Muttopalvelu_Backend.Options;
 using Microsoft.Extensions.Options;
 
@@ -15,6 +16,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
         // Customer emails
         Task SendCustomerBookingReceivedEmailAsync(CreateBookingDto dto, Guid bookingId);
         Task SendCustomerOfferReceivedEmailAsync(CreateOfferDto dto, Guid offerId);
+        Task SendCustomerBookingStatusUpdateEmailAsync(UpdateBookingDto dto, Guid bookingId);
     }
 
     public class EmailService : IEmailService
@@ -351,32 +353,109 @@ namespace Gamana_Muttopalvelu_Backend.Services
                 htmlBody);
         }
 
-       private async Task SendEmailAsync(
-    string recipient,
-    string subject,
-    string htmlBody)
-{
-    var message = new EmailMessage
-    {
-        From = "Gamana Muuttopalvelu <noreply@gamanamuutto.fi>",
-        Subject = subject,
-        HtmlBody = htmlBody
-    };
+        public async Task SendCustomerBookingStatusUpdateEmailAsync(UpdateBookingDto dto, Guid bookingId  )
+        {
+            // Configure badge colors and titles based on status
+            var (statusColor, badgeBg, statusTitle) = dto.Status.ToLower() switch
+            {
+                "confirmed" => ("#198754", "#d1e7dd", "✅ Booking Confirmed"),
+                "completed" => ("#0d6efd", "#cfe2ff", "🎉 Booking Completed"),
+                "cancelled" or "canceled" => ("#dc3545", "#f8d7da", "❌ Booking Cancelled"),
+                _ => ("#ffc107", "#fff3cd", "⏳ Booking Update") // Default for Pending or other statuses
+            };
 
-    message.To.Add(recipient);
+            var statusMessage = dto.Status.ToLower() switch
+            {
+                "confirmed" => "Great news! Your booking has been confirmed by our team. We are looking forward to assisting you on your moving day.",
+                "completed" => "Your moving service has been marked as completed. Thank you for choosing Gamana Muuttopalvelu!",
+                "cancelled" or "canceled" => "Your booking has been cancelled. If you believe this was done in error or if you wish to reschedule, please contact us.",
+                _ => "There has been an update regarding your booking status."
+            };
 
-    try
-    {
-        var response = await _resend.EmailSendAsync(message);
+            var adminNotesHtml = string.IsNullOrWhiteSpace(dto.AdminNotes) ? "" : $@"
+        <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'/>
 
-        Console.WriteLine(
-            $"RESEND SUCCESS: {response.Content}");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"RESEND ERROR: {ex}");
-        throw;
-    }
-}
+        <h3 style='color: #222; margin-bottom: 8px;'>
+            Message from Admin
+        </h3>
+
+        <div style='background: #f8f9fa; border-left: 4px solid {statusColor}; padding: 12px 16px; border-radius: 4px; font-style: italic; color: #444;'>
+            {dto.AdminNotes}
+        </div>";
+
+            var htmlBody = $@"
+        <div style='font-family: Arial, sans-serif; padding: 24px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px;'>
+            <div style='text-align: center; margin-bottom: 20px;'>
+                <span style='background-color: {badgeBg}; color: {statusColor}; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; display: inline-block;'>
+                    {dto.Status.ToUpper()}
+                </span>
+            </div>
+
+            <h2 style='color: #222; margin-top: 0; text-align: center;'>
+                {statusTitle}
+            </h2>
+
+            <p style='font-size: 15px; color: #444; line-height: 1.5;'>
+                Hi <strong>{dto.FullName}</strong>,
+            </p>
+
+            <p style='font-size: 15px; color: #444; line-height: 1.5;'>
+                {statusMessage}
+            </p>
+
+            <div style='background-color: #f1f3f5; padding: 12px 16px; border-radius: 6px; margin: 20px 0;'>
+                <p style='margin: 0; font-size: 14px; color: #555;'>
+                    <strong>Booking ID:</strong> {bookingId}
+                </p>
+                <p style='margin: 4px 0 0 0; font-size: 14px; color: #555;'>
+                    <strong>Current Status:</strong> <span style='color: {statusColor}; font-weight: bold;'>{dto.Status}</span>
+                </p>
+            </div>
+
+            {adminNotesHtml}
+
+            <hr style='border: none; border-top: 1px solid #eee; margin: 24px 0 16px 0;'/>
+
+            <p style='font-size: 13px; color: #777; text-align: center; margin: 0;'>
+                If you have any questions, feel free to reply directly to this email.
+            </p>
+            <p style='font-size: 13px; color: #777; text-align: center; margin-top: 4px;'>
+                <strong>Gamana Muuttopalvelu</strong>
+            </p>
+        </div>";
+
+            var subject = $"Booking #{bookingId.ToString()[..8]} Update - {dto.Status}";
+
+            await SendEmailAsync(dto.Email, subject, htmlBody);
+        }
+
+        private async Task SendEmailAsync(
+      string recipient,
+      string subject,
+      string htmlBody)
+        {
+            var message = new EmailMessage
+            {
+                From = "Gamana Muuttopalvelu <noreply@gamanamuutto.fi>",
+                // Sets where customer replies are delivered
+                ReplyTo = "gamanamuutto@gmail.com", // Replace with your actual active support email
+                Subject = subject,
+                HtmlBody = htmlBody
+            };
+
+            message.To.Add(recipient);
+
+            try
+            {
+                var response = await _resend.EmailSendAsync(message);
+
+                Console.WriteLine($"RESEND SUCCESS: {response.Content}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"RESEND ERROR: {ex}");
+                throw;
+            }
+        }
     }
 }

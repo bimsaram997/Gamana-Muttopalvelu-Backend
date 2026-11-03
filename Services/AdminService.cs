@@ -1,5 +1,9 @@
 ﻿using Gamana_Muttopalvelu_Backend.Data;
+using Gamana_Muttopalvelu_Backend.DTO;
 using Gamana_Muttopalvelu_Backend.DTO.Admin;
+using Gamana_Muttopalvelu_Backend.DTO.Admin.bookings;
+using Gamana_Muttopalvelu_Backend.DTO.Filters;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gamana_Muttopalvelu_Backend.Services
@@ -25,7 +29,8 @@ namespace Gamana_Muttopalvelu_Backend.Services
         Task<bool> DeleteDetailedServiceAsync(int id);
 
         // Packages
-        Task<List<AdminPackageResponseDto>> GetAllPackagesAsync();
+        Task<List<AdminPackageResponseDto>> GetAllDropdownPackagesAsync();
+        Task<PagedResponse<AdminPackageResponseDto>> GetAllPackagesAsync(PackageQueryParameters packageQueryParameters);
         Task<AdminPackageResponseDto?> GetPackageByIdAsync(int id);
         Task<int> SavePackageAsync(AdminPackageUpsertDto dto, int? id = null);
         Task<bool> DeletePackageAsync(int id);
@@ -229,7 +234,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
         }
 
         // --- 4. Pricing Packages ---
-        public async Task<List<AdminPackageResponseDto>> GetAllPackagesAsync()
+        public async Task<List<AdminPackageResponseDto>> GetAllDropdownPackagesAsync()
         {
             return await _context.PricingPackages.Include(x => x.Translations).Include(x => x.Features).ThenInclude(f => f.Translations)
                 .Select(x => new AdminPackageResponseDto
@@ -247,6 +252,72 @@ namespace Gamana_Muttopalvelu_Backend.Services
                         Translations = f.Translations.Select(ft => new FeatureTranslationDto { LanguageCode = ft.LanguageCode, Text = ft.Text }).ToList()
                     }).ToList()
                 }).ToListAsync();
+        }
+
+        public async Task<PagedResponse<AdminPackageResponseDto>> GetAllPackagesAsync(PackageQueryParameters packageQueryParameters)
+        {
+            var query = _context.PricingPackages
+                .Include(x => x.Translations)
+                .Include(x => x.Features)
+                .ThenInclude(f => f.Translations)
+                .AsQueryable();
+
+            // Filter by Title
+            if (!string.IsNullOrWhiteSpace(packageQueryParameters.Title))
+            {
+                var searchTerm = packageQueryParameters.Title.Trim().ToLower();
+                query = query.Where(x => x.Translations.Any(t => t.Title.ToLower().Contains(searchTerm)));
+            }
+
+            // Filter by Status
+            if (!string.IsNullOrWhiteSpace(packageQueryParameters.Status))
+            {
+                if (bool.TryParse(packageQueryParameters.Status, out var isActive))
+                {
+                    query = query.Where(x => x.IsActive == isActive);
+                }
+            }
+
+            // Total count before paging
+            var totalRecords = await query.CountAsync();
+
+            // Apply pagination
+            var items = await query
+                .Skip((packageQueryParameters.PageNumber - 1) * packageQueryParameters.PageSize)
+                .Take(packageQueryParameters.PageSize)
+                .Select(x => new AdminPackageResponseDto
+                {
+                    Id = x.Id,
+                    RatePerHour = x.RatePerHour,
+                    IsPopular = x.IsPopular,
+                    DisplayOrder = x.DisplayOrder,
+                    IsActive = x.IsActive,
+                    Translations = x.Translations.Select(t => new PackageTranslationDto
+                    {
+                        LanguageCode = t.LanguageCode,
+                        Title = t.Title,
+                        PriceDisplay = t.PriceDisplay,
+                        Unit = t.Unit,
+                        Description = t.Description
+                    }).ToList(),
+                    Features = x.Features.Select(f => new AdminFeatureResponseDto
+                    {
+                        Id = f.Id,
+                        DisplayOrder = f.DisplayOrder,
+                        Translations = f.Translations.Select(ft => new FeatureTranslationDto
+                        {
+                            LanguageCode = ft.LanguageCode,
+                            Text = ft.Text
+                        }).ToList()
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return new PagedResponse<AdminPackageResponseDto>
+            {
+                Data = items,
+                TotalCount = totalRecords
+            };
         }
 
         public async Task<AdminPackageResponseDto?> GetPackageByIdAsync(int id)

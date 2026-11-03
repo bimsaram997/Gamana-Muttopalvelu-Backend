@@ -327,7 +327,7 @@ namespace Gamana_Muttopalvelu_Backend.Services
 
             // Save the booking and address changes
             await _bookingRepository.SaveChangesAsync();
-
+            _emailQueue.QueueEmail(EmailType.BookingStatusUpdate, dto, booking.Id);
 
             return booking.Id;
         }

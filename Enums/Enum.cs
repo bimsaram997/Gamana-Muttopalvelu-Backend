@@ -10,7 +10,8 @@
         Booking,
         BookingConfirmation,
         Offer,
-        OfferConfirmation
-     
+        OfferConfirmation,
+        BookingStatusUpdate,
+
     }
 }
